@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>India Flight Route Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        .route-graph {
+            width: 100%;
+            height: 80vh;
+            border: 1px solid #e0e0e0;
+        }
+        .city-node {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .city-node:hover {
+            r: 14;
+        }
+        .route-card {
+            transition: all 0.2s ease;
+        }
+        .route-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .city-label {
+            font-size: 12px;
+            pointer-events: none;
+            text-shadow: 0px 0px 3px white, 0px 0px 3px white, 0px 0px 3px white, 0px 0px 3px white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-2xl md:text-3xl font-bold">India Flight Route Optimizer</h1>
+            <p class="text-blue-100">Find the best routes between major Indian cities</p>
+        </div>
+    </header>
+    
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex flex-col md:flex-row gap-6">
+            
+            <!-- Left Side: All Route Details and Selection -->
+            <div class="md:w-1/3 space-y-6">
+                <!-- City Selection Card -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Select Cities
+                    </h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-medium mb-2">From</label>
+                        <select id="startCity" class="w-full p-2 border rounded focus:ring focus:ring-blue-200 focus:border-blue-500 transition">
+                            <option value="">Select Start City</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-medium mb-2">To</label>
+                        <select id="endCity" class="w-full p-2 border rounded focus:ring focus:ring-blue-200 focus:border-blue-500 transition">
+                            <option value="">Select End City</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button id="findRoutes" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            Find Routes
+                        </button>
+                        <button id="resetButton" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Route Statistics Card -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Route Statistics
+                    </h2>
+                    <div id="routeStats" class="space-y-3">
+                        <div class="flex justify-between p-3 bg-gray-50 rounded">
+                            <span class="text-gray-700">Total Routes:</span>
+                            <span id="totalRoutes" class="font-medium">-</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded">
+                            <span class="text-gray-700">Shortest Route:</span>
+                            <span id="shortestRouteStops" class="font-medium">-</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded">
+                            <span class="text-gray-700">Routes found in:</span>
+                            <span id="searchTime" class="font-medium">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Available Routes Card -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        Available Routes
+                    </h2>
+                    <div id="routeVisualization" class="mt-2 max-h-96 overflow-y-auto space-y-2">
+                        <p class="text-gray-500 italic text-center py-8">Select cities to view available routes</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Graph Visualization -->
+            <div class="md:w-2/3">
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                            </svg>
+                            Flight Route Graph
+                        </h2>
+                        <div class="flex space-x-2">
+                            <button id="zoomIn" class="bg-gray-100 hover:bg-gray-200 p-2 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                </svg>
+                            </button>
+                            <button id="zoomOut" class="bg-gray-100 hover:bg-gray-200 p-2 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                                </svg>
+                            </button>
+                            <button id="resetZoom" class="bg-gray-100 hover:bg-gray-200 p-2 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="routeGraph" class="route-graph bg-gray-50"></div>
+                    <div id="graphLegend" class="mt-4 flex items-center justify-center space-x-8">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-gray-300 rounded-full mr-2"></div>
+                            <span class="text-sm text-gray-600">Available Connection</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                            <span class="text-sm text-gray-600">Recommended Route</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                            <span class="text-sm text-gray-600">City</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="mt-8 bg-gray-800 text-gray-300 py-4">
+        <div class="container mx-auto px-4 text-center">
+            <p>© 2025 India Flight Route Optimizer</p>
+        </div>
+    </footer>
+
+    <script>
+        const flightNetwork = {
+            "Mumbai": { 
+                connections: ["Delhi", "Bangalore", "Kolkata", "Chennai"], 
+                coordinates: {x: 300, y: 400},
+                info: { airport: "CSMIA", code: "BOM" }
+            },
+            "Delhi": { 
+                connections: ["Mumbai", "Jaipur", "Bangalore", "Kolkata", "Hyderabad"], 
+                coordinates: {x: 250, y: 200},
+                info: { airport: "IGIA", code: "DEL" }
+            },
+            "Bangalore": { 
+                connections: ["Mumbai", "Chennai", "Delhi", "Hyderabad"], 
+                coordinates: {x: 400, y: 500},
+                info: { airport: "KIAB", code: "BLR" }
+            },
+            "Kolkata": { 
+                connections: ["Mumbai", "Delhi", "Chennai"], 
+                coordinates: {x: 500, y: 250},
+                info: { airport: "NSCBIA", code: "CCU" }
+            },
+            "Chennai": { 
+                connections: ["Mumbai", "Bangalore", "Kolkata", "Hyderabad"], 
+                coordinates: {x: 450, y: 550},
+                info: { airport: "MACI", code: "MAA" }
+            },
+            "Jaipur": { 
+                connections: ["Delhi", "Mumbai"], 
+                coordinates: {x: 200, y: 300},
+                info: { airport: "JAI", code: "JAI" }
+            },
+            "Hyderabad": { 
+                connections: ["Bangalore", "Chennai", "Delhi"], 
+                coordinates: {x: 350, y: 450},
+                info: { airport: "RGIA", code: "HYD" }
+            }
+        };
+        
+        // Global variables
+        let svg, zoom;
+        let currentRoutes = [];
+        let selectedRoute = null;
+        
+        function populateCityDropdowns() {
+            const startSelect = document.getElementById('startCity');
+            const endSelect = document.getElementById('endCity');
+            
+            // Clear existing options
+            startSelect.innerHTML = '<option value="">Select Start City</option>';
+            endSelect.innerHTML = '<option value="">Select End City</option>';
+            
+            // Add city options sorted alphabetically
+            Object.keys(flightNetwork).sort().forEach(city => {
+                let startOption = new Option(city, city);
+                let endOption = new Option(city, city);
+                startSelect.appendChild(startOption);
+                endSelect.appendChild(endOption);
+            });
+        }
+
+        function findRoutes(start, end) {
+            const startTime = performance.now();
+            
+            let routes = [];
+            let queue = [[start]];
+            let visited = new Set();
+            
+            while (queue.length) {
+                let path = queue.shift();
+                let city = path[path.length - 1];
+                
+                if (city === end) {
+                    routes.push(path);
+                    continue;
+                }
+                
+                if (visited.has(path.join('-'))) continue;
+                visited.add(path.join('-'));
+                
+                flightNetwork[city].connections.forEach(next => {
+                    if (!path.includes(next)) {
+                        queue.push([...path, next]);
+                    }
+                });
+            }
+            
+            // Sort routes by length (shortest first)
+            routes.sort((a, b) => a.length - b.length);
+            
+            const endTime = performance.now();
+            document.getElementById('searchTime').textContent = `${Math.round(endTime - startTime)} ms`;
+            
+            return routes;
+        }
+
+        function visualizeRoutes(routes) {
+            const container = document.getElementById('routeVisualization');
+            container.innerHTML = '';
+            
+            if (!routes.length) {
+                container.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded border border-red-200">No routes found between these cities.</div>';
+                document.getElementById('totalRoutes').textContent = '0';
+                document.getElementById('shortestRouteStops').textContent = '-';
+                return;
+            }
+            
+            // Update route statistics
+            document.getElementById('totalRoutes').textContent = routes.length;
+            
+            // Find shortest route (already sorted)
+            let shortestRoute = routes[0];
+            document.getElementById('shortestRouteStops').textContent = `${shortestRoute.length - 1} stops`;
+            
+            // Create all routes with styling
+            routes.forEach((route, i) => {
+                const isShortestRoute = i === 0;
+                const routeElement = document.createElement('div');
+                
+                routeElement.className = `route-card p-3 mb-2 rounded border cursor-pointer ${
+                    isShortestRoute ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
+                }`;
+                
+                // Add route number and badge for recommended route
+                let routeHeader = `<div class="flex items-center justify-between mb-1">
+                    <span class="font-medium text-gray-700">Route ${i + 1}</span>`;
+                
+                if (isShortestRoute) {
+                    routeHeader += `<span class="bg-green-500 text-white text-xs px-2 py-1 rounded">Recommended</span>`;
+                }
+                
+                routeHeader += `</div>`;
+                
+                // Add route details
+                let routePath = `<div class="flex items-center">
+                    <div class="flex-1">
+                        <div class="flex items-center text-sm">
+                            ${route.join(' → ')}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            ${route.length - 1} stops • ${route.length} cities
+                        </div>
+                    </div>
+                </div>`;
+                
+                routeElement.innerHTML = routeHeader + routePath;
+                
+                // Add click handler to highlight selected route
+                routeElement.addEventListener('click', () => {
+                    // Remove selected class from all routes
+                    document.querySelectorAll('.route-card').forEach(el => 
+                        el.classList.remove('ring-2', 'ring-blue-500'));
+                    
+                    // Add selected class to this route
+                    routeElement.classList.add('ring-2', 'ring-blue-500');
+                    
+                    // Update the graph visualization
+                    selectedRoute = route;
+                    visualizeRouteGraph(routes);
+                });
+                
+                container.appendChild(routeElement);
+                
+                // Auto-select the recommended route
+                if (isShortestRoute) {
+                    routeElement.click();
+                }
+            });
+        }
+
+        function visualizeRouteGraph(routes) {
+            const graphContainer = document.getElementById('routeGraph');
+            graphContainer.innerHTML = '';
+            
+            // Set up SVG with zoom capability
+            svg = d3.select("#routeGraph")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("viewBox", `0 0 600 600`);
+            
+            // Add zoom behavior
+            zoom = d3.zoom()
+                .scaleExtent([0.5, 3])
+                .on("zoom", function(event) {
+                    svg.select("g").attr("transform", event.transform);
+                });
+                
+            svg.call(zoom);
+            
+            // Create a group for all elements to allow zooming
+            const g = svg.append("g");
+            
+            // Draw all connections as light gray lines first
+            Object.keys(flightNetwork).forEach(city => {
+                flightNetwork[city].connections.forEach(connectedCity => {
+                    let start = flightNetwork[city].coordinates;
+                    let end = flightNetwork[connectedCity].coordinates;
+                    g.append("line")
+                        .attr("x1", start.x).attr("y1", start.y)
+                        .attr("x2", end.x).attr("y2", end.y)
+                        .attr("stroke", "#d1d5db").attr("stroke-width", 2.5)
+                        .attr("stroke-opacity", 0.8);
+                });
+            });
+            
+            // If a route is selected, highlight it
+            if (selectedRoute) {
+                selectedRoute.forEach((city, i) => {
+                    if (i < selectedRoute.length - 1) {
+                        let start = flightNetwork[city].coordinates;
+                        let end = flightNetwork[selectedRoute[i + 1]].coordinates;
+                        
+                        // Draw animated path
+                        g.append("line")
+                            .attr("x1", start.x).attr("y1", start.y)
+                            .attr("x2", end.x).attr("y2", end.y)
+                            .attr("stroke", "#ef4444")
+                            .attr("stroke-width", 4)
+                            .attr("stroke-linecap", "round");
+                    }
+                });
+                
+                // Add small route markers at each stop
+                selectedRoute.forEach((city, i) => {
+                    let coords = flightNetwork[city].coordinates;
+                    
+                    // Add step number for route
+                    g.append("circle")
+                        .attr("cx", coords.x)
+                        .attr("cy", coords.y)
+                        .attr("r", 16)
+                        .attr("fill", "white")
+                        .attr("stroke", "#ef4444")
+                        .attr("stroke-width", 2);
+                        
+                    g.append("text")
+                        .attr("x", coords.x)
+                        .attr("y", coords.y + 5)
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "#ef4444")
+                        .attr("font-weight", "bold")
+                        .attr("font-size", "12px")
+                        .text(i + 1);
+                });
+            }
+            
+            // Draw all cities
+            Object.keys(flightNetwork).forEach(city => {
+                let coords = flightNetwork[city].coordinates;
+                
+                // Create city node
+                g.append("circle")
+                    .attr("cx", coords.x)
+                    .attr("cy", coords.y)
+                    .attr("r", 10)
+                    .attr("fill", "#3b82f6")
+                    .attr("class", "city-node")
+                    .on("mouseover", function() {
+                        // Show tooltip with city info
+                        const info = flightNetwork[city].info;
+                        
+                        g.append("rect")
+                            .attr("x", coords.x + 15)
+                            .attr("y", coords.y - 45)
+                            .attr("width", 120)
+                            .attr("height", 60)
+                            .attr("fill", "white")
+                            .attr("stroke", "#d1d5db")
+                            .attr("rx", 4)
+                            .attr("class", "tooltip");
+                            
+                        g.append("text")
+                            .attr("x", coords.x + 25)
+                            .attr("y", coords.y - 25)
+                            .attr("fill", "#111827")
+                            .attr("font-weight", "bold")
+                            .attr("class", "tooltip")
+                            .text(city);
+                            
+                        g.append("text")
+                            .attr("x", coords.x + 25)
+                            .attr("y", coords.y - 5)
+                            .attr("fill", "#4b5563")
+                            .attr("class", "tooltip")
+                            .text(`Airport: ${info.airport}`);
+                    })
+                    .on("mouseout", function() {
+                        // Remove tooltip
+                        g.selectAll(".tooltip").remove();
+                    })
+                    .on("click", function() {
+                        // Set this city in one of the dropdowns if empty
+                        const startCity = document.getElementById('startCity');
+                        const endCity = document.getElementById('endCity');
+                        
+                        if (!startCity.value) {
+                            startCity.value = city;
+                        } else if (!endCity.value) {
+                            endCity.value = city;
+                        } else {
+                            // Replace end city and move previous end to start
+                            startCity.value = endCity.value;
+                            endCity.value = city;
+                        }
+                        
+                        // If both are set, find routes
+                        if (startCity.value && endCity.value) {
+                            document.getElementById('findRoutes').click();
+                        }
+                    });
+                
+                // Add city labels
+                g.append("text")
+                    .attr("x", coords.x)
+                    .attr("y", coords.y - 15)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#111827")
+                    .attr("font-weight", "500")
+                    .attr("class", "city-label")
+                    .text(city);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateCityDropdowns();
+            
+            // Initial graph rendering with all cities
+            visualizeRouteGraph();
+            
+            // Find routes button event
+            document.getElementById('findRoutes').addEventListener('click', () => {
+                let startCity = document.getElementById('startCity').value;
+                let endCity = document.getElementById('endCity').value;
+                
+                if (!startCity || !endCity) {
+                    alert('Please select both start and end cities');
+                    return;
+                }
+                
+                if (startCity === endCity) {
+                    alert('Start and end cities cannot be the same');
+                    return;
+                }
+                
+                // Find and visualize routes
+                currentRoutes = findRoutes(startCity, endCity);
+                visualizeRoutes(currentRoutes);
+            });
+            
+            // Reset button event
+            document.getElementById('resetButton').addEventListener('click', () => {
+                document.getElementById('startCity').value = '';
+                document.getElementById('endCity').value = '';
+                document.getElementById('routeVisualization').innerHTML = 
+                    '<p class="text-gray-500 italic text-center py-8">Select cities to view available routes</p>';
+                document.getElementById('totalRoutes').textContent = '-';
+                document.getElementById('shortestRouteStops').textContent = '-';
+                document.getElementById('searchTime').textContent = '-';
+                selectedRoute = null;
+                visualizeRouteGraph();
+            });
+            
+            // Zoom controls
+            document.getElementById('zoomIn').addEventListener('click', () => {
+                svg.transition().duration(300).call(zoom.scaleBy, 1.3);
+            });
+            
+            document.getElementById('zoomOut').addEventListener('click', () => {
+                svg.transition().duration(300).call(zoom.scaleBy, 0.7);
+            });
+            
+            document.getElementById('resetZoom').addEventListener('click', () => {
+                svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+            });
+        });
+    </script>
+</body>
+</html>
